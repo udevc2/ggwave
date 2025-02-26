@@ -4,16 +4,23 @@
  * 
  * Target: We should read pipe and play that out
  *
- *  
+ * WIP:
+ * 
+ * 	./ggwave-from-pipe > /tmp/t.wav
+ * 	
+ * 
  */
 
 #include "ggwave/ggwave.h"
 
+#include "ggwave-common.h"
+#include "ggwave-common-sdl2.h"
+
+#include <SDL.h>
+
 #define DR_WAV_IMPLEMENTATION
 #include "dr_wav.h"
-
 #include "ggwave-common.h"
-
 #include <cstdio>
 #include <cstring>
 #include <iostream>
@@ -22,7 +29,6 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
 #include <sys/types.h>
 
 
@@ -114,24 +120,24 @@ int main(int argc, char** argv) {
 
     // fprintf(stderr, "Enter a text message:\n");
 	// Get payload from input
-    std::string message;
+    // std::string message;
     // std::getline(std::cin, message);
 
-
-	fprintf(stderr, "waiting for fifo input ... (/tmp/fifo_in) \n");
+while (1)
+{
 
 	// Get payload from FIFO
+	std::string message;
+	char buffer[100];
 	
+	fprintf(stderr, "waiting for fifo input ... (/tmp/fifo_in) \n");
+		
 	// Open FIFO for reading
     int fd = open(FIFO_NAME, O_RDONLY);
     if (fd == -1) {
         std::cerr << "Error opening FIFO for reading\n";
         return 1;
     }
-
-    char buffer[100];
-    
-	
 
     // Read from FIFO
     int bytesRead = read(fd, buffer, sizeof(buffer) - 1);
@@ -145,14 +151,6 @@ int main(int argc, char** argv) {
     
     // Copy buffer to message
     message = std::string(buffer, bytesRead);
-
-
-
-
-
-
-
-
 
 
     if (message.size() == 0) {
@@ -212,6 +210,31 @@ int main(int argc, char** argv) {
     fprintf(stderr, "WAV frames written = %d\n", (int) framesWritten);
 
     drwav_uninit(&wav);
+    
+    // Play wav
+    // https://gigi.nullneuron.net/gigilabs/playing-a-wav-file-using-sdl2/
+    
+    fprintf(stderr, "Playing wav file \n");
+    
+    if (SDL_Init(SDL_INIT_AUDIO) < 0) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't initialize SDL: %s\n", SDL_GetError());
+            return (1);
+	}
+	SDL_AudioSpec wavSpec;
+	Uint32 wavLength;
+	Uint8 *wavBuffer;
+	// TODO: remove hardcoded wav filename
+	SDL_LoadWAV("/tmp/t.wav", &wavSpec, &wavBuffer, &wavLength);
+    SDL_AudioDeviceID deviceId = SDL_OpenAudioDevice(NULL, 0, &wavSpec, NULL, 0);    
+	int success = SDL_QueueAudio(deviceId, wavBuffer, wavLength);
+	SDL_PauseAudioDevice(deviceId, 0);
+	// keep application running long enough to hear the sound
+	SDL_Delay(3000);
+	SDL_CloseAudioDevice(deviceId);
+	SDL_FreeWAV(wavBuffer);
+	SDL_Quit();
+
+}
 
     return 0;
 }
