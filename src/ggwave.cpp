@@ -1764,12 +1764,14 @@ void GGWave::decode_variable() {
 								if (fd == -1) {
 									ggprintf("Error opening FIFO for writing \n");
 								}
-								write(fd, m_rx.data.data(), m_rx.dataLength );
+								ggprintf(" decodedLength: %i \n",decodedLength);
+								write(fd, m_rx.data.data(), decodedLength  );
 								close(fd);
 							
 							//
 							// end of wip
 							//
+							
                             isValid = true;
                             m_rx.hasNewRxData = true;
                             m_rx.dataLength = decodedLength;
