@@ -29,6 +29,15 @@
 #define GG_MIN(A, B) (((A) < (B)) ? (A) : (B))
 #define GG_MAX(A, B) (((A) >= (B)) ? (A) : (B))
 
+
+// fifo
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <sys/types.h>
+#define FIFO_NAME "/tmp/fifo_out"
+
+
 //
 // C interface
 //
@@ -1732,8 +1741,35 @@ void GGWave::decode_variable() {
                             }
 
                             ggprintf("Decoded length = %d, protocol = '%s' (%d)\n", decodedLength, protocol.name, protocolId);
-                            ggprintf("Received sound data successfully: '%s'\n", m_rx.data.data());
-
+                            ggprintf("[1735] Received sound data successfully: '%s'\n", m_rx.data.data());
+                            
+                            //
+                            // WIP: Write fifo here
+                            // 
+                            
+								struct stat st;
+								// Check if FIFO already exists and is a named pipe
+								if (stat(FIFO_NAME, &st) == 0) {
+									if (!S_ISFIFO(st.st_mode)) {
+										ggprintf(" %s exists but is not a FIFO! \n",FIFO_NAME);
+									}
+								} else {
+									// FIFO does not exist, create it
+									if (mkfifo(FIFO_NAME, 0666) == -1) {
+										ggprintf(" error creating fifo \n");
+									}
+								}
+								// Open FIFO for writing
+								int fd = open(FIFO_NAME, O_WRONLY);
+								if (fd == -1) {
+									ggprintf("Error opening FIFO for writing \n");
+								}
+								write(fd, m_rx.data.data(), m_rx.dataLength );
+								close(fd);
+							
+							//
+							// end of wip
+							//
                             isValid = true;
                             m_rx.hasNewRxData = true;
                             m_rx.dataLength = decodedLength;
