@@ -26,12 +26,14 @@
 #include <cstring>
 #include <iostream>
 
+#include <stdio.h>
+#include <errno.h>
+
 // fifo
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sys/types.h>
-
 #define FIFO_NAME "/tmp/fifo_in"
 
 void my_audio_callback(void *userdata, Uint8 *stream, int len);
@@ -212,8 +214,25 @@ while (1)
     drwav_uint64 framesWritten = drwav_write_pcm_frames(&wav, bufferPCM.size()/2, bufferPCM.data());
 
     fprintf(stderr, "WAV frames written = %d\n", (int) framesWritten);
-
     drwav_uninit(&wav);
+    
+    
+    // TODO: Inhibit ggwave-to-pipe (decoding) running on same host
+    
+		int fd_inhibit = open("/tmp/inhibit", O_WRONLY | O_CREAT | O_EXCL, 0644);
+		// If an error occured, print out more information
+		if (fd_inhibit == -1) {
+			printf("There was a problem creating /tmp/inhibit \n");
+			if (errno == EEXIST) {
+			  printf("The file already exists.\n");
+			} else {
+			  printf("Unknown errno: %d\n", errno);
+			}
+
+		}
+		// Close the file now that we are done with it
+		close(fd_inhibit);
+    
     
     // Play wav
     // https://gigi.nullneuron.net/gigilabs/playing-a-wav-file-using-sdl2/
@@ -245,6 +264,14 @@ while (1)
 	SDL_CloseAudioDevice(deviceId);
 	SDL_FreeWAV(wavBuffer);
 	SDL_Quit();
+
+	// TODO: Allow ggwave-to-pipe (decoding) running on same host
+	
+
+    // Attempt to delete the file
+    if (! remove("/tmp/inhibit") == 0) {
+        printf("Error: Unable to delete inhibit file.\n");
+    }
 
 }
 

@@ -1,12 +1,23 @@
 #include "ggwave/ggwave.h"
-
 #include "ggwave-common.h"
 #include "ggwave-common-sdl2.h"
-
 #include <SDL.h>
-
 #include <cstdio>
 #include <thread>
+#include <stdbool.h>
+
+// return true if the file specified by the filename exists
+bool file_exists(const char *filename)
+{
+    FILE *fp = fopen(filename, "r");
+    bool is_exist = false;
+    if (fp != NULL)
+    {
+        is_exist = true;
+        fclose(fp);
+    }
+    return is_exist;
+}
 
 int main(int argc, char** argv) {
     printf("Usage: %s [-cN]\n", argv[0]);
@@ -23,8 +34,10 @@ int main(int argc, char** argv) {
 
     while (true) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        GGWave_mainLoop();
-    }
+		
+		if (!file_exists("/tmp/inhibit"))
+			GGWave_mainLoop();
+		}
 
     GGWave_deinit();
 
