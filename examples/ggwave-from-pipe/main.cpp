@@ -8,6 +8,7 @@
  * 
  * 	./ggwave-from-pipe > /tmp/t.wav
  * 	
+ * https://gist.github.com/armornick/3447121
  * 
  */
 
@@ -31,8 +32,11 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-
 #define FIFO_NAME "/tmp/fifo_in"
+
+void my_audio_callback(void *userdata, Uint8 *stream, int len);
+static Uint8 *audio_pos;
+static Uint32 audio_len;
 
 int main(int argc, char** argv) {
 	
@@ -225,11 +229,19 @@ while (1)
 	Uint8 *wavBuffer;
 	// TODO: remove hardcoded wav filename
 	SDL_LoadWAV("/tmp/t.wav", &wavSpec, &wavBuffer, &wavLength);
+	
+	// set the callback function
+	wavSpec.callback = my_audio_callback;
+	wavSpec.userdata = NULL;
+	audio_pos = wavBuffer; // copy sound buffer
+	audio_len = wavLength; // copy file length
+	
     SDL_AudioDeviceID deviceId = SDL_OpenAudioDevice(NULL, 0, &wavSpec, NULL, 0);    
 	int success = SDL_QueueAudio(deviceId, wavBuffer, wavLength);
 	SDL_PauseAudioDevice(deviceId, 0);
-	// keep application running long enough to hear the sound
-	SDL_Delay(3000);
+	while ( audio_len > 0 ) {
+		SDL_Delay(100); 
+	}
 	SDL_CloseAudioDevice(deviceId);
 	SDL_FreeWAV(wavBuffer);
 	SDL_Quit();
@@ -238,3 +250,15 @@ while (1)
 
     return 0;
 }
+
+void my_audio_callback(void *userdata, Uint8 *stream, int len) 
+{
+	
+	if (audio_len ==0)
+		return;
+	len = ( (unsigned int) len > audio_len ? audio_len : len );
+	SDL_memcpy (stream, audio_pos, len);	
+	audio_pos += len;
+	audio_len -= len;
+}
+
