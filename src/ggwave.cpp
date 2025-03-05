@@ -1759,13 +1759,18 @@ void GGWave::decode_variable() {
 										ggprintf(" error creating fifo \n");
 									}
 								}
+                                
+                                
+                                // If no process is reading from the FIFO, open(FIFO_NAME, O_WRONLY); blocks indefinitely.
+                                // int fd = open(FIFO_NAME, O_WRONLY | O_NONBLOCK);
+                                
 								// Open FIFO for writing
 								int fd = open(FIFO_NAME, O_WRONLY);
 								if (fd == -1) {
 									ggprintf("Error opening FIFO for writing \n");
 								}
-								ggprintf(" decodedLength: %i \n",decodedLength);
-								write(fd, m_rx.data.data(), decodedLength  );
+								ggprintf(" decodedLength: %i (goint to -1) \n",decodedLength);
+								write(fd, m_rx.data.data(), decodedLength - 1 ); // CHECK THIS -1 
 								close(fd);
 							
 							//

@@ -132,13 +132,16 @@ int main(int argc, char** argv) {
 while (1)
 {
 
-	// Get payload from FIFO
-	std::string message;
-	char buffer[100];
+    // Get payload from FIFO
+    std::string message;
+    
+    // #define BUFFER_SIZE 100
+    // unsigned char buffer[100]; // This could be increased up to 180 based on ggwave notes?
+    
+    fprintf(stderr, "waiting for fifo input ... (/tmp/fifo_in) \n");
 	
-	fprintf(stderr, "waiting for fifo input ... (/tmp/fifo_in) \n");
-		
-	// Open FIFO for reading
+    /*
+    // Open FIFO for reading
     int fd = open(FIFO_NAME, O_RDONLY);
     if (fd == -1) {
         std::cerr << "Error opening FIFO for reading\n";
@@ -148,15 +151,51 @@ while (1)
     // Read from FIFO
     int bytesRead = read(fd, buffer, sizeof(buffer) - 1);
     if (bytesRead > 0) {
-        buffer[bytesRead] = '\0'; // Null-terminate the string
+        
         std::cout << "Received: " << buffer << std::endl;
     }
 
     // Close FIFO
     close(fd);
     
+    */
+    
+    
+    
+    // Open FIFO for reading
+    int fd = open(FIFO_NAME, O_RDONLY);
+    if (fd == -1) {
+        std::cerr << "Error opening FIFO for reading\n";
+        return 1;
+    }
+
+    // Read from FIFO in binary-safe manner
+    #define BUFFER_SIZE 100
+    unsigned char buffer[BUFFER_SIZE];  // Use unsigned char for binary data
+    int bytesRead = read(fd, buffer, sizeof(buffer));
+    if (bytesRead > 0) {
+        std::cout << "Received " << bytesRead << " bytes\n";
+
+        // Process binary data (example: print raw hex values)
+        for (int i = 0; i < bytesRead; ++i) {
+            printf("%02X ", buffer[i]);  // Print in hexadecimal
+        }
+        printf("\n");
+    } else if (bytesRead == 0) {
+        std::cout << "FIFO closed by writer\n";
+    } else {
+        std::cerr << "Error reading from FIFO\n";
+    }
+
+    close(fd);
+    
+    
+    message = std::string(reinterpret_cast<const char*>(buffer), bytesRead);
+    
+    
+    
     // Copy buffer to message
-    message = std::string(buffer, bytesRead);
+    // message = std::string(buffer, bytesRead);
 
 
     if (message.size() == 0) {
