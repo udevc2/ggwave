@@ -1769,8 +1769,8 @@ void GGWave::decode_variable() {
 								if (fd == -1) {
 									ggprintf("Error opening FIFO for writing \n");
 								}
-								ggprintf(" decodedLength: %i (goint to -1) \n",decodedLength);
-								write(fd, m_rx.data.data(), decodedLength - 1 ); // CHECK THIS -1 
+								ggprintf(" decodedLength: %i (mod) \n",decodedLength);
+								write(fd, m_rx.data.data(), decodedLength );
 								close(fd);
 							
 							//
