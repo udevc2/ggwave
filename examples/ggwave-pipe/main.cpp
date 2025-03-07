@@ -17,8 +17,6 @@
 #include <mutex>
 #include <thread>
 #include <iostream>
-
-// fifo
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -43,7 +41,7 @@ int main(int argc, char** argv) {
     const int  payloadLength = argm.count("l") == 0 ? -1 : std::stoi(argm.at("l"));
     const bool useDSS        = argm.count("d") >  0;
 
-    // Prepare fifo FIFO_NAME_INPUT
+    // Prepare FIFO_NAME_INPUT
     struct stat st;
     if (stat(FIFO_NAME_INPUT, &st) == 0) {
         if (!S_ISFIFO(st.st_mode)) {
@@ -58,7 +56,7 @@ int main(int argc, char** argv) {
         }
     }
     
-    // Prepare fifo FIFO_NAME_OUTPUT
+    // Prepare FIFO_NAME_OUTPUT
     if (stat(FIFO_NAME_OUTPUT, &st) == 0) {
         if (!S_ISFIFO(st.st_mode)) {
             printf(" %s exists but is not a FIFO! \n",FIFO_NAME_OUTPUT);
@@ -171,17 +169,15 @@ int main(int argc, char** argv) {
                 //
                 // Write received data to fifo
                 // 
-                //
                 // If no process is reading from the FIFO, open(FIFO_NAME_OUTPUT, O_WRONLY); blocks indefinitely.
                 // int fd = open(FIFO_NAME_OUTPUT, O_WRONLY | O_NONBLOCK);
                 //
                 
-                // Open FIFO for writing
                 int fd = open(FIFO_NAME_OUTPUT, O_WRONLY);
                 if (fd == -1) {
                     printf("Error opening FIFO for writing \n");
                 }
-                printf(" data: %s len: %i (mod) \n", receivedData.data(), ggWave->getRxDataLength() );
+                printf(" Data: %s len: %i (mod) \n", receivedData.data(), ggWave->getRxDataLength() );
                 write(fd, receivedData.data(), ggWave->getRxDataLength() );
                 close(fd);
                 
