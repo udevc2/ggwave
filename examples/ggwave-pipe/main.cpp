@@ -1,5 +1,14 @@
-#include "ggwave/ggwave.h"
+/*
+ * ggwave-pipe
+ * 
+ * Reads FIFO /tmp/fifo_in for data to be transmitted over audio link.
+ * 
+ * Writes FIFO /tmp/fifo_out with data received from audio link.
+ * 
+ * 
+ */
 
+#include "ggwave/ggwave.h"
 #include "ggwave-common.h"
 #include "ggwave-common-sdl2.h"
 #include <SDL.h>
@@ -25,7 +34,6 @@ int main(int argc, char** argv) {
     printf("    -tN - transmission protocol\n");
     printf("    -lN - fixed payload length of size N, N in [1, %d]\n", GGWave::kMaxLengthFixed);
     printf("    -d  - use Direct Sequence Spread (DSS)\n");
-    printf("    -v  - print generated tones on resend\n");
     printf("\n");
 
     const auto argm          = parseCmdArguments(argc, argv);
@@ -34,10 +42,8 @@ int main(int argc, char** argv) {
     const int  txProtocolId  = argm.count("t") == 0 ?  1 : std::stoi(argm.at("t"));
     const int  payloadLength = argm.count("l") == 0 ? -1 : std::stoi(argm.at("l"));
     const bool useDSS        = argm.count("d") >  0;
-    const bool printTones    = argm.count("v") >  0;
 
-
-    // Prepare fifo
+    // Prepare fifo FIFO_NAME_INPUT
     struct stat st;
     if (stat(FIFO_NAME_INPUT, &st) == 0) {
         if (!S_ISFIFO(st.st_mode)) {
@@ -51,6 +57,19 @@ int main(int argc, char** argv) {
             return 1;
         }
     }
+    
+    // Prepare fifo FIFO_NAME_OUTPUT
+    if (stat(FIFO_NAME_OUTPUT, &st) == 0) {
+        if (!S_ISFIFO(st.st_mode)) {
+            printf(" %s exists but is not a FIFO! \n",FIFO_NAME_OUTPUT);
+        }
+    } else {
+        // FIFO does not exist, create it
+        if (mkfifo(FIFO_NAME_OUTPUT, 0666) == -1) {
+            printf(" error creating fifo \n");
+        }
+    }
+    
 
     if (GGWave_init(playbackId, captureId, payloadLength, 0.0f, useDSS) == false) {
         fprintf(stderr, "Failed to initialize GGWave\n");
@@ -94,15 +113,18 @@ int main(int argc, char** argv) {
                 return 1;
             }
 
-            // Read from FIFO in binary-safe manner
-            // 180 is ggwave limit
+            // “Currently, the actual limit for the message length is 183 bytes. 
+            // The reason is that we append 40% ECC bytes at the end of the message 
+            // and the total length becomes 1.4*183 = 256. At this point, the error 
+            // correction library that is used stops working.”
+            // https://github.com/ggerganov/ggwave/discussions/34
+            
             #define BUFFER_SIZE 180
             unsigned char buffer[BUFFER_SIZE];  // Use unsigned char for binary data
+            // Read from FIFO in binary-safe manner
             int bytesRead = read(fd, buffer, sizeof(buffer));
             if (bytesRead > 0) {
                 std::cout << "Received " << bytesRead << " bytes\n";
-
-                // Process binary data (example: print raw hex values)
                 for (int i = 0; i < bytesRead; ++i) {
                     printf("%02X ", buffer[i]);  // Print in hexadecimal
                 }
@@ -119,43 +141,6 @@ int main(int argc, char** argv) {
                 std::lock_guard<std::mutex> lock(mutex);
                 ggWave->init(message.size(), message.data(), GGWave::TxProtocolId(txProtocolId), 10);
             }
-            
-            
-            // default send
-            if ( 0 )
-            {
-                std::string input;
-                printf("Enter text: ");
-                fflush(stdout);
-                getline(std::cin, input);
-                if (input.empty()) {
-                    printf("Re-sending ...\n");
-                    input = inputOld;
-
-                    if (printTones) {
-                        printf("Printing generated waveform tones (Hz):\n");
-                        const auto & protocol = protocols[txProtocolId];
-                        const auto tones = ggWave->txTones();
-                        for (int i = 0; i < (int) tones.size(); ++i) {
-                            if (tones[i] < 0) {
-                                printf(" - end tx\n");
-                                continue;
-                            }
-                            const auto freq_hz = (protocol.freqStart + tones[i])*ggWave->hzPerSample();
-                            printf(" - tone %3d: %f\n", i, freq_hz);
-                        }
-                    }
-                } else {
-                    printf("Sending ...\n");
-                }
-                {
-                    std::lock_guard<std::mutex> lock(mutex);
-                    ggWave->init(input.size(), input.data(), GGWave::TxProtocolId(txProtocolId), 10);
-                }
-                inputOld = input;
-            }
-            
-            
         }
     });
 
@@ -164,13 +149,14 @@ int main(int argc, char** argv) {
         {
             std::lock_guard<std::mutex> lock(mutex);
             
+            // Audio listen
             GGWave_mainLoop();            
             
             /*  
              * Add to ggwave.h:
              * 
-             *      bool hasNewRxData() const { return m_rx.hasNewRxData; }
-             *      void resetNewRxFlag() { m_rx.hasNewRxData = false; }
+             * bool hasNewRxData() const { return m_rx.hasNewRxData; }
+             * void resetNewRxFlag() { m_rx.hasNewRxData = false; }
              * 
              */
             if (ggWave->hasNewRxData()) {
@@ -183,52 +169,31 @@ int main(int argc, char** argv) {
                 std::cout << std::endl;
                 
                 //
-                // WIP: Write fifo here
+                // Write received data to fifo
                 // 
-                
-                    struct stat st;
-                    // Check if FIFO already exists and is a named pipe
-                    if (stat(FIFO_NAME_OUTPUT, &st) == 0) {
-                        if (!S_ISFIFO(st.st_mode)) {
-                            printf(" %s exists but is not a FIFO! \n",FIFO_NAME_OUTPUT);
-                        }
-                    } else {
-                        // FIFO does not exist, create it
-                        if (mkfifo(FIFO_NAME_OUTPUT, 0666) == -1) {
-                            printf(" error creating fifo \n");
-                        }
-                    }
-                    
-                    // If no process is reading from the FIFO, open(FIFO_NAME_OUTPUT, O_WRONLY); blocks indefinitely.
-                    // int fd = open(FIFO_NAME_OUTPUT, O_WRONLY | O_NONBLOCK);
-                    
-                    // Open FIFO for writing
-                    int fd = open(FIFO_NAME_OUTPUT, O_WRONLY);
-                    if (fd == -1) {
-                        printf("Error opening FIFO for writing \n");
-                    }
-                    printf(" data: %s len: %i (mod) \n", receivedData.data(), ggWave->getRxDataLength() );
-                    write(fd, receivedData.data(), ggWave->getRxDataLength() );
-                    close(fd);
-                
                 //
-                // end of wip
+                // If no process is reading from the FIFO, open(FIFO_NAME_OUTPUT, O_WRONLY); blocks indefinitely.
+                // int fd = open(FIFO_NAME_OUTPUT, O_WRONLY | O_NONBLOCK);
                 //
+                
+                // Open FIFO for writing
+                int fd = open(FIFO_NAME_OUTPUT, O_WRONLY);
+                if (fd == -1) {
+                    printf("Error opening FIFO for writing \n");
+                }
+                printf(" data: %s len: %i (mod) \n", receivedData.data(), ggWave->getRxDataLength() );
+                write(fd, receivedData.data(), ggWave->getRxDataLength() );
+                close(fd);
                 
                 ggWave->resetNewRxFlag();
             }
-            
-           
             
         }
     }
 
     inputThread.join();
-
     GGWave_deinit();
-
     SDL_CloseAudio();
     SDL_Quit();
-
     return 0;
 }
