@@ -110,6 +110,7 @@ if (GGWAVE_SUPPORT_SDL2)
 
         add_subdirectory(ggwave-rx)
         add_subdirectory(ggwave-cli)
+        add_subdirectory(ggwave-pipe)
     endif()
 
     add_subdirectory(waver)

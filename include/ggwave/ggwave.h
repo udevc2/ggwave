@@ -442,6 +442,11 @@ public:
     using RxProtocolId  = ggwave_ProtocolId;
     using OperatingMode = int; // ggwave_OperatingMode;
 
+    // ggwave-pipe 
+    bool hasNewRxData() const { return m_rx.hasNewRxData; }
+    void resetNewRxFlag() { m_rx.hasNewRxData = false; }
+    int getRxDataLength() const { return m_rx.dataLength; }
+
     struct Protocol {
         const char * name;  // string identifier of the protocol
 
@@ -496,7 +501,7 @@ public:
 
         void enableAll();
         void disableAll();
-
+        
         void toggle(ProtocolId id, bool state);
         void only(ProtocolId id);
 
@@ -848,6 +853,9 @@ public:
                 int nSamples,
                 const float * samplesInp,
                 float * samplesOut);
+        
+        
+
 
     private:
         float getData(int j) const;
