@@ -24,6 +24,7 @@
 #define FIFO_NAME_OUTPUT "/tmp/fifo_out"
 #define FIFO_NAME_INPUT "/tmp/fifo_in"
 
+int g_busyBlock = 0;
 
 int main(int argc, char** argv) {
     printf("Usage: %s [-cN] [-pN] [-tN] [-lN]\n", argv[0]);
@@ -149,6 +150,37 @@ int main(int argc, char** argv) {
             
             // Audio listen
             GGWave_mainLoop();            
+            
+            if ( ggWave->recevingRxData() && g_busyBlock == 0 )
+            {
+                std::cout << "** RECEIVING ** \n";
+                g_busyBlock = 1;
+                
+                
+                const char *filename = "/tmp/inhibit";
+                FILE *fp_inhibit = fopen(filename, "w");
+                if (fp_inhibit == NULL)
+                {
+                    printf("Error opening the file %s", filename);
+                    return -1;
+                }
+                fprintf(fp_inhibit, "rx-active\n");
+                fclose(fp_inhibit);
+                
+                
+                
+                
+                
+            } 
+             if ( !ggWave->recevingRxData() && g_busyBlock == 1 )
+            {
+                std::cout << "** STOP RECEIVING ** \n";
+                g_busyBlock = 0;
+                
+                const char *filename = "/tmp/inhibit";
+                remove(filename);
+                
+            }
             
             /*  
              * Add to ggwave.h:

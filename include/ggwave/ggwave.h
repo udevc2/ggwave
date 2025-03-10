@@ -442,10 +442,11 @@ public:
     using RxProtocolId  = ggwave_ProtocolId;
     using OperatingMode = int; // ggwave_OperatingMode;
 
-    // ggwave-pipe 
+    // ggwave-pipe  
     bool hasNewRxData() const { return m_rx.hasNewRxData; }
     void resetNewRxFlag() { m_rx.hasNewRxData = false; }
     int getRxDataLength() const { return m_rx.dataLength; }
+    bool recevingRxData() const { return m_rx.receiving; }
 
     struct Protocol {
         const char * name;  // string identifier of the protocol
