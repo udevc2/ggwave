@@ -1,11 +1,26 @@
 /*
  * ggwave-pipe
  * 
- * Reads FIFO /tmp/fifo_in for data to be transmitted over audio link.
+ * Pipe data to and from fifo files.
  * 
- * Writes FIFO /tmp/fifo_out with data received from audio link.
+ * - Reads FIFO /tmp/fifo_in for data to be transmitted over audio link.
+ * - Writes FIFO /tmp/fifo_out with data received from audio link.
+ * - Creates /tmp/inhibit when audio receive is in progress
  * 
  * 
+ * Available Tx protocols:
+      0 - Normal
+      1 - Fast
+      2 - Fastest
+      3 - [U] Normal
+      4 - [U] Fast
+      5 - [U] Fastest
+      6 - [DT] Normal
+      7 - [DT] Fast
+      8 - [DT] Fastest
+      9 - [MT] Normal
+      10 - [MT] Fast
+      11 - [MT] Fastest
  */
 
 #include "ggwave/ggwave.h"
