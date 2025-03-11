@@ -21,10 +21,19 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <atomic>
+#include <signal.h> 
+
 #define FIFO_NAME_OUTPUT "/tmp/fifo_out"
 #define FIFO_NAME_INPUT "/tmp/fifo_in"
 
 int g_busyBlock = 0;
+
+void my_handler(int s){
+    printf("Caught signal %d\n",s);
+    exit(1); 
+}
+
 
 int main(int argc, char** argv) {
     printf("Usage: %s [-cN] [-pN] [-tN] [-lN]\n", argv[0]);
@@ -41,6 +50,14 @@ int main(int argc, char** argv) {
     const int  txProtocolId  = argm.count("t") == 0 ?  1 : std::stoi(argm.at("t"));
     const int  payloadLength = argm.count("l") == 0 ? -1 : std::stoi(argm.at("l"));
     const bool useDSS        = argm.count("d") >  0;
+
+    // Catch ctrl+c
+    struct sigaction sigIntHandler;
+    sigIntHandler.sa_handler = my_handler;
+    sigemptyset(&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
+    sigaction(SIGINT, &sigIntHandler, NULL);
+
 
     // Prepare FIFO_NAME_INPUT
     struct stat st;
@@ -93,6 +110,9 @@ int main(int argc, char** argv) {
 
     printf("Selecting Tx protocol %d\n", txProtocolId);
 
+
+
+
     std::mutex mutex;
     std::thread inputThread([&]() {
         std::string inputOld = "";
@@ -100,7 +120,7 @@ int main(int argc, char** argv) {
         //
         // Output to audio from fifo (/tmp/fifo_in)
         //
-        while (true) {
+        while ( true ) {
             // Get payload from FIFO
             std::string message;
             printf("Waiting for fifo input ( %s ) \n", FIFO_NAME_INPUT);
@@ -143,7 +163,7 @@ int main(int argc, char** argv) {
         }
     });
 
-    while (true) {
+    while ( true ) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         {
             std::lock_guard<std::mutex> lock(mutex);
@@ -155,8 +175,6 @@ int main(int argc, char** argv) {
             {
                 std::cout << "** RECEIVING ** \n";
                 g_busyBlock = 1;
-                
-                
                 const char *filename = "/tmp/inhibit";
                 FILE *fp_inhibit = fopen(filename, "w");
                 if (fp_inhibit == NULL)
@@ -166,22 +184,15 @@ int main(int argc, char** argv) {
                 }
                 fprintf(fp_inhibit, "rx-active\n");
                 fclose(fp_inhibit);
-                
-                
-                
-                
-                
+
             } 
              if ( !ggWave->recevingRxData() && g_busyBlock == 1 )
             {
                 std::cout << "** STOP RECEIVING ** \n";
                 g_busyBlock = 0;
-                
                 const char *filename = "/tmp/inhibit";
                 remove(filename);
-                
             }
-            
             /*  
              * Add to ggwave.h:
              * 
@@ -197,14 +208,12 @@ int main(int argc, char** argv) {
                     std::cout << static_cast<char>(byte);
                 }
                 std::cout << std::endl;
-                
                 //
                 // Write received data to fifo
                 // 
                 // If no process is reading from the FIFO, open(FIFO_NAME_OUTPUT, O_WRONLY); blocks indefinitely.
                 // int fd = open(FIFO_NAME_OUTPUT, O_WRONLY | O_NONBLOCK);
                 //
-                
                 int fd = open(FIFO_NAME_OUTPUT, O_WRONLY);
                 if (fd == -1) {
                     printf("Error opening FIFO for writing \n");
@@ -212,16 +221,12 @@ int main(int argc, char** argv) {
                 printf(" Data: %s len: %i (mod) \n", receivedData.data(), ggWave->getRxDataLength() );
                 write(fd, receivedData.data(), ggWave->getRxDataLength() );
                 close(fd);
-                
                 ggWave->resetNewRxFlag();
             }
             
         }
     }
-
-    inputThread.join();
+    inputThread.join();    
     GGWave_deinit();
-    SDL_CloseAudio();
-    SDL_Quit();
     return 0;
 }
