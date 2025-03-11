@@ -1,5 +1,7 @@
-# ggwave-cli
+# ggwave-pipe
 
-A basic command line tool for sending and receiving `ggwave` data.
+Command line tool for sending and receiving `ggwave` data to and from
+fifo pipe files (/tmp/fifo_in and /tmp/fifo_out).
 
-![ggwave-cli](https://i.imgur.com/fhNggnq.png)
+
+

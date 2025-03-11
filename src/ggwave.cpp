@@ -11,6 +11,8 @@
 #include <stdio.h>
 //#include <random>
 
+#define GGWAVE_DISABLE_LOG 1
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif

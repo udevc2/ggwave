@@ -42,13 +42,14 @@
 #define FIFO_NAME_OUTPUT "/tmp/fifo_out"
 #define FIFO_NAME_INPUT "/tmp/fifo_in"
 
+
+
 int g_busyBlock = 0;
 
-void my_handler(int s){
+void signal_handler(int s){
     printf("Caught signal %d\n",s);
     exit(1); 
 }
-
 
 int main(int argc, char** argv) {
     printf("Usage: %s [-cN] [-pN] [-tN] [-lN]\n", argv[0]);
@@ -66,9 +67,9 @@ int main(int argc, char** argv) {
     const int  payloadLength = argm.count("l") == 0 ? -1 : std::stoi(argm.at("l"));
     const bool useDSS        = argm.count("d") >  0;
 
-    // Catch ctrl+c
+    // Signal handler
     struct sigaction sigIntHandler;
-    sigIntHandler.sa_handler = my_handler;
+    sigIntHandler.sa_handler = signal_handler;
     sigemptyset(&sigIntHandler.sa_mask);
     sigIntHandler.sa_flags = 0;
     sigaction(SIGINT, &sigIntHandler, NULL);
@@ -82,7 +83,6 @@ int main(int argc, char** argv) {
             return 1;
         }
     } else {
-        // FIFO does not exist, create it
         if (mkfifo(FIFO_NAME_INPUT, 0666) == -1) {
             std::cerr << "Error creating FIFO!\n";
             return 1;
@@ -95,7 +95,6 @@ int main(int argc, char** argv) {
             printf(" %s exists but is not a FIFO! \n",FIFO_NAME_OUTPUT);
         }
     } else {
-        // FIFO does not exist, create it
         if (mkfifo(FIFO_NAME_OUTPUT, 0666) == -1) {
             printf(" error creating fifo \n");
         }
@@ -136,7 +135,6 @@ int main(int argc, char** argv) {
         // Output to audio from fifo (/tmp/fifo_in)
         //
         while ( true ) {
-            // Get payload from FIFO
             std::string message;
             printf("Waiting for fifo input ( %s ) \n", FIFO_NAME_INPUT);
             
@@ -160,7 +158,7 @@ int main(int argc, char** argv) {
             if (bytesRead > 0) {
                 std::cout << "Received " << bytesRead << " bytes\n";
                 for (int i = 0; i < bytesRead; ++i) {
-                    printf("%02X ", buffer[i]);  // Print in hexadecimal
+                    printf("%02X ", buffer[i]);
                 }
                 printf("\n");
             } else if (bytesRead == 0) {
@@ -188,7 +186,7 @@ int main(int argc, char** argv) {
             
             if ( ggWave->recevingRxData() && g_busyBlock == 0 )
             {
-                std::cout << "** RECEIVING ** \n";
+                std::cout << "Start receiving\n";
                 g_busyBlock = 1;
                 const char *filename = "/tmp/inhibit";
                 FILE *fp_inhibit = fopen(filename, "w");
@@ -199,11 +197,10 @@ int main(int argc, char** argv) {
                 }
                 fprintf(fp_inhibit, "rx-active\n");
                 fclose(fp_inhibit);
-
             } 
              if ( !ggWave->recevingRxData() && g_busyBlock == 1 )
             {
-                std::cout << "** STOP RECEIVING ** \n";
+                std::cout << "Stop receiving\n";
                 g_busyBlock = 0;
                 const char *filename = "/tmp/inhibit";
                 remove(filename);
@@ -226,14 +223,14 @@ int main(int argc, char** argv) {
                 //
                 // Write received data to fifo
                 // 
-                // If no process is reading from the FIFO, open(FIFO_NAME_OUTPUT, O_WRONLY); blocks indefinitely.
+                // If no process is reading from the FIFO, open(FIFO_NAME_OUTPUT, O_WRONLY); blocks indefinitely,
+                // you can try O_NONBLOCK
                 // int fd = open(FIFO_NAME_OUTPUT, O_WRONLY | O_NONBLOCK);
                 //
                 int fd = open(FIFO_NAME_OUTPUT, O_WRONLY);
                 if (fd == -1) {
                     printf("Error opening FIFO for writing \n");
                 }
-                printf(" Data: %s len: %i (mod) \n", receivedData.data(), ggWave->getRxDataLength() );
                 write(fd, receivedData.data(), ggWave->getRxDataLength() );
                 close(fd);
                 ggWave->resetNewRxFlag();
